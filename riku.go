@@ -7,6 +7,7 @@ import (
 	"github.com/songtianyi/wechat-go/wxweb"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -31,7 +32,9 @@ func main() {
 					logs.Info("定时发消息")
 					//logs.Informational("m name %s", session.Bot.UserName)
 					//logs.Informational("g name %s", qq.UserName)
-					m := fmt.Sprintf("定时推送群消息! %s", time.Now().Format("2006/1/2 15:04:05"))
+					m := fmt.Sprintf("%s\n%s",
+						time.Now().Format("2006/1/2 15:04:05"),
+						Worker())
 					session.SendText(m, session.Bot.UserName, qq.UserName)
 				}
 			}
@@ -57,16 +60,16 @@ type Result struct {
 	Stocks    []*Stock
 }
 
-func Worker()  {
-	fmt.Println("scanning...")
+func Worker() string {
+	logs.Informational("scanning...")
 
 	url := "https://www.selfridges.com/api/cms/ecom/v1/CN/zh/stock/byId/456-84033258-L8453000"
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		logs.Informational("err: %+v", err)
+		return ""
 	}
 	req.Header.Set("Api-Key", "xjut2p34999bad9dx7y868ng")
 
@@ -76,14 +79,26 @@ func Worker()  {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
-		return
+		logs.Informational("err: %+v", err)
+		return ""
 	}
 
 	result := &Result{}
 	json.Unmarshal(body, result)
+
+	r := ""
 	for _, s := range result.Stocks {
 		info := fmt.Sprintf("商品:%s 色号:%s 货号:%s 库存:%s", s.Key, s.Value, s.SkuId, s.Stock)
-		fmt.Println(info)
+
+		if s.Stock != "" {
+			st, err := strconv.Atoi(s.Stock)
+			if err == nil {
+				if st > 0 {
+					r = r + info + "\n"
+				}
+			}
+		}
+		logs.Informational("info: %+v", info)
 	}
+	return r
 }
